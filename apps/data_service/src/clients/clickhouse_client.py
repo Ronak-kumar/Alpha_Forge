@@ -1,7 +1,7 @@
 from clickhouse_driver import Client
-import logging
+from config.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger("clients.clickhouse")
 
 class ClickHouseClient:
     def __init__(self, host: str = "localhost", port: int = 9000, user: str = "default", password: str = "default", database: str = "default"):
