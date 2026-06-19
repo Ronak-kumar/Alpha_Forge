@@ -1,2 +1,6 @@
-clickhouse-driver==0.2.0
+#clickhouse-driver==0.2.0
 python-dotenv==1.2.2
+fastapi==0.111.1
+uvicorn[standard]==0.24.0
+pyarrow==24.0.0
+aio-pika===9.6.2
