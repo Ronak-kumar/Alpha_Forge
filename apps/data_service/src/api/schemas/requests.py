@@ -11,7 +11,7 @@ def model_docs(model):
 class MonthlyDataRequest(BaseModel):
     """Request model for creating or validating monthly data."""
 
-    segment: str = Field(
+    asset_class: str = Field(
         ...,
         description="Data segment name (e.g., equity, crypto). Used to organize data by asset class.",
         examples=["FNO"]

@@ -57,15 +57,8 @@ def _write_parquet_file(path: Path, events: List[Dict[str, Any]]) -> Dict[str, A
         "row_count": len(events),
     }
 
-
-async def create_monthly_data(segment: str, year: int, month: int, symbol: str, exchange: str) -> Dict[str, Any]:
-    if segment == "FNO":
-        folder_path = ["INDEX", "OPTION"]
-    elif segment == "EQUITY":
-        folder_path = ["EQUITY"]
-    elif segment == "CRYPTO":
-        folder_path = ["CRYPTO"]
-
+def _create_fno_data(symbol: str, year: int, month: int):
+    folder_path = ["INDEX", "OPTION"]
     for folder in folder_path:
         month_path = _month_path(folder, symbol)
         _ensure_path(month_path)
@@ -77,6 +70,26 @@ async def create_monthly_data(segment: str, year: int, month: int, symbol: str, 
         manifest_path.write_text(json.dumps(manifest, indent=2))
 
         logger.info(f"Created monthly parquet and manifest: {file_path}")
+
+def _create_equity_data(symbol: str, year: int, month: int):
+    pass
+
+def _create_crypto_data(symbol: str, year: int, month: int):
+    pass
+
+def _create_forex_data(symbol: str, year: int, month: int):
+    pass
+
+async def create_monthly_data(asset_class: str, year: int, month: int, symbol: str, exchange: str) -> Dict[str, Any]:
+    if asset_class == "FNO":
+        _create_fno_data(symbol, year, month)
+    elif asset_class == "EQUITY":
+        _create_equity_data(symbol, year, month)
+    elif asset_class == "CRYPTO":
+        _create_crypto_data(symbol, year, month)
+    elif asset_class == "FOREX":
+        _create_forex_data(symbol, year, month)
+
     return {
         "path": str(file_path),
         "manifest": manifest,
