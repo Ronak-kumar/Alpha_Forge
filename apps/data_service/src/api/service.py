@@ -1,4 +1,3 @@
-import asyncio
 import json
 import uuid
 from pathlib import Path
@@ -9,7 +8,7 @@ import pyarrow.parquet as pq
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from api.tasks import create_monthly_data_task
+from tasks import create_monthly_data_task
 from apps.data_service.src.config.logger import get_logger
 
 logger = get_logger("api.service")
@@ -85,7 +84,7 @@ def _write_parquet_file(path: Path, events: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 
-async def _create_monthly_data(segment: str, year: int, month: int, events: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _create_monthly_data(segment: str, year: int, month: int, events: List[Dict[str, Any]]) -> Dict[str, Any]:
     month_path = _month_path(segment, year, month)
     _ensure_path(month_path)
 
@@ -102,7 +101,7 @@ async def _create_monthly_data(segment: str, year: int, month: int, events: List
     }
 
 
-async def _ensure_or_validate_manifest(segment: str, year: int, month: int, events: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
+def _ensure_or_validate_manifest(segment: str, year: int, month: int, events: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
     manifest_path = _manifest_path(segment, year, month)
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text())
@@ -113,12 +112,12 @@ async def _ensure_or_validate_manifest(segment: str, year: int, month: int, even
     if events is None:
         raise HTTPException(status_code=400, detail="No events provided to create missing monthly metadata")
 
-    result = await _create_monthly_data(segment, year, month, events)
+    result = _create_monthly_data(segment, year, month, events)
     return {"manifest": result["manifest"], "status": "created"}
 
 
 @router.post("/month")
-async def create_or_validate_monthly_data(request: MonthlyDataRequest, fastapi_request: Request):
+def create_or_validate_monthly_data(request: MonthlyDataRequest, fastapi_request: Request):
     segment = request.segment
     year = request.year
     month = request.month
@@ -155,18 +154,13 @@ async def create_or_validate_monthly_data(request: MonthlyDataRequest, fastapi_r
         "request_id": request_id,
     }
 
-    # Publish job to RabbitMQ using the app-level publisher (connected at startup)
     try:
-        app = fastapi_request.app
-        # ensure publisher connected on app startup stored in app.state
-        if getattr(app.state, "rabbit_publisher", None):
-            await app.state.rabbit_publisher.publish(job)
-        else:
-            # fallback: connect temporarily and publish
-            await publisher.connect()
-            await publisher.publish(job)
+        create_monthly_data_task.apply_async(
+            args=[segment, year, month, events],
+            kwargs={"request_id": request_id},
+        )
     except Exception as exc:
-        logger.error("Failed to publish job to RabbitMQ: %s", exc)
+        logger.error("Failed to enqueue Celery task: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to enqueue job")
 
     return {
@@ -179,13 +173,13 @@ async def create_or_validate_monthly_data(request: MonthlyDataRequest, fastapi_r
 
 
 @router.get("/queue/status")
-async def queue_status():
+def queue_status():
     # When using RabbitMQ, return broker queue length is not trivial without management plugin.
     return {"status": "ok", "note": "Use RabbitMQ management UI to inspect queue length"}
 
 
 @router.get("/month/{segment}/{year}/{month}")
-async def get_monthly_manifest(segment: str, year: int, month: int):
+def get_monthly_manifest(segment: str, year: int, month: int):
     manifest_path = _manifest_path(segment, year, month)
     if not manifest_path.exists():
         raise HTTPException(status_code=404, detail="Monthly manifest not found")
@@ -193,7 +187,7 @@ async def get_monthly_manifest(segment: str, year: int, month: int):
 
 
 @router.get("/month/{segment}/{year}/{month}/data")
-async def get_monthly_data(segment: str, year: int, month: int):
+def get_monthly_data(segment: str, year: int, month: int):
     month_path = _month_path(segment, year, month)
     if not month_path.exists():
         raise HTTPException(status_code=404, detail="Monthly month path not found")
