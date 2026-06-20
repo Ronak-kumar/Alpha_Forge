@@ -7,23 +7,10 @@ import pyarrow.parquet as pq
 from fastapi import HTTPException
 
 from apps.data_service.src.config.logger import get_logger
+from apps.data_service.src.helpers.utill import _ensure_path, _manifest_path, _month_path
+
 
 logger = get_logger("api.monthly")
-
-DATA_BASE = Path(__file__).resolve().parents[1] / "cache"
-MANIFEST_NAME = "manifest.json"
-
-
-def _month_path(segment: str, year: int, month: int) -> Path:
-    return DATA_BASE / segment / f"year={year}" / f"month={month:02d}"
-
-
-def _manifest_path(segment: str, year: int, month: int) -> Path:
-    return _month_path(segment, year, month) / MANIFEST_NAME
-
-
-def _ensure_path(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
 
 
 def _build_manifest(files: List[Dict[str, Any]], symbols: List[str]) -> Dict[str, Any]:
@@ -71,17 +58,25 @@ def _write_parquet_file(path: Path, events: List[Dict[str, Any]]) -> Dict[str, A
     }
 
 
-async def create_monthly_data(segment: str, year: int, month: int, events: List[Dict[str, Any]]) -> Dict[str, Any]:
-    month_path = _month_path(segment, year, month)
-    _ensure_path(month_path)
+async def create_monthly_data(segment: str, year: int, month: int, symbol: str, exchange: str) -> Dict[str, Any]:
+    if segment == "FNO":
+        folder_path = ["INDEX", "OPTION"]
+    elif segment == "EQUITY":
+        folder_path = ["EQUITY"]
+    elif segment == "CRYPTO":
+        folder_path = ["CRYPTO"]
 
-    file_path = month_path / f"{segment}_{year}_{month:02d}.parquet"
-    file_meta = _write_parquet_file(file_path, events)
-    manifest = _build_manifest([file_meta], [file_meta["symbol"]])
-    manifest_path = _manifest_path(segment, year, month)
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    for folder in folder_path:
+        month_path = _month_path(folder, symbol)
+        _ensure_path(month_path)
 
-    logger.info(f"Created monthly parquet and manifest: {file_path}")
+        file_path = month_path / f"{symbol}_{year}_{month:02d}.parquet"
+        file_meta = _write_parquet_file(file_path)
+        manifest = _build_manifest([file_meta], [file_meta["symbol"]])
+        manifest_path = _manifest_path(folder, symbol)
+        manifest_path.write_text(json.dumps(manifest, indent=2))
+
+        logger.info(f"Created monthly parquet and manifest: {file_path}")
     return {
         "path": str(file_path),
         "manifest": manifest,
@@ -99,7 +94,7 @@ async def ensure_or_validate_manifest(segment: str, year: int, month: int, event
     if events is None:
         raise HTTPException(status_code=400, detail="No events provided to create missing monthly metadata")
 
-    result = await create_monthly_data(segment, year, month, events)
+    result = await create_monthly_data(segment, year, month, symbol, exchange, events)
     return {"manifest": result["manifest"], "status": "created"}
 
 
