@@ -8,7 +8,7 @@ logger = get_logger("api.monthly")
 
 async def create_monthly_data(asset_class: str, year: int, month: int, symbol: str, exchange: str) -> Dict[str, Any]:
     if asset_class == "FNO":
-        _create_fno_data(symbol, year, month)
+        _create_fno_data(asset_class, symbol, year, month)
         logger.info(f"Created monthly parquet and manifest: {asset_class} for {symbol} {year}-{month:02d}")
 
     elif asset_class == "EQUITY":

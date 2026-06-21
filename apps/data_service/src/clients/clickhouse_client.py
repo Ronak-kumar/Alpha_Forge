@@ -19,7 +19,7 @@ class ClickHouseClient:
     def execute_query_with_params(self, query: str, params: dict) -> list:
         """Execute parameterized query"""
         try:
-            results = self.client.execute(query, params)
+            results = self.client.execute(query, params, with_column_types=True)
             self.logger.info(f"Parameterized query executed: {len(results)} rows returned")
             return results
         except Exception as e:

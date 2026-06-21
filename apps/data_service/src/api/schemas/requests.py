@@ -48,7 +48,7 @@ class MonthlyDataRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
-                "segment": "FNO",
+                "asset_class": "FNO",
                 "year": 2020,
                 "month": 5,
                 "symbol": "NIFTY",
