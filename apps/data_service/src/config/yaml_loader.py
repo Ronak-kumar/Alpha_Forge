@@ -8,4 +8,4 @@ with open(source_file, "r") as f:
 
 
 def get_symbol_mapping(asset_class: str, instrument_type: str, symbol: str) -> str:
-    return config.get(asset_class, {}).get(symbol, {}).get(instrument_type, {})
+    return config.get(asset_class, {}).get(symbol, {}).get(instrument_type, symbol)

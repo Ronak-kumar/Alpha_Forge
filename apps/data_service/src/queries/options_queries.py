@@ -176,7 +176,7 @@ SELECT *
 FROM {table_name}
 WHERE Symbol = %(symbol)s
   AND toDate(Timestamp) >= %(start_date)s
-  AND toDate(Timestamp) <= %(end_date)s
+  AND toDate(Timestamp) < %(end_date)s
 ORDER BY toDate(Timestamp)
 """
 
