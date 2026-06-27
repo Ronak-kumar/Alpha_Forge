@@ -6,8 +6,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from fastapi import HTTPException
 
-from apps.data_service.src.config.logger import get_logger
-from apps.data_service.src.helpers.utill import _ensure_path, _manifest_path, _month_path
+from config import get_logger
+from utillities import _ensure_path, _manifest_path, _month_path
 
 
 logger = get_logger("api.monthly")

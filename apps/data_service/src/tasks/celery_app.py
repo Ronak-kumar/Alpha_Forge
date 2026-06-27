@@ -13,8 +13,8 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
-    task_always_eager=True,
-    task_eager_propagates=True,
+    # task_always_eager=True,
+    # task_eager_propagates=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_serializer="json",

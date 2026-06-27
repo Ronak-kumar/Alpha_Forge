@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from apps.data_service.src.config.logger import get_logger
+from config import get_logger
 from .provider import _create_fno_data, _create_equity_data, _create_crypto_data, _create_forex_data
 
 logger = get_logger("api.monthly")

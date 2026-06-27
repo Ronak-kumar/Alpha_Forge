@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 # Create logs directory if it doesn't exist
-LOGS_DIR = Path(__file__).resolve().parents[2] / "logs"
+LOGS_DIR = Path(__file__).resolve().parents[1] / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
 # Get log level from environment or use INFO

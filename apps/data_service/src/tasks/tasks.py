@@ -1,6 +1,6 @@
 from .celery_app import celery_app, RABBIT_QUEUE
-from services.orchestrator import create_monthly_data
-from apps.data_service.src.config.logger import get_logger
+from services import create_monthly_data
+from config import get_logger
 import asyncio
 
 
