@@ -39,6 +39,18 @@ def get_monthly_export_query(table_name: str) -> str:
     """
     return format_query(MONTHLY_EXPORT_QUERY, table_name)
 
+def get_metadata_query(table_name: str) -> str:
+    """
+    Get the metadata query formatted with the table name.
+    
+    Args:
+        table_name: The name of the table to query
+        
+    Returns:
+        Formatted metadata query
+    """
+    return format_query(META_DATA_QUERY, table_name)
+
 # Export all query templates for direct access if needed
 __all__ = [
     'BASIC_QUERY',
@@ -58,5 +70,6 @@ __all__ = [
     'META_DATA_QUERY',
     'CUSTOM_COLUMN_SELECTION_QUERY',
     'format_query',
-    'get_monthly_export_query'
+    'get_monthly_export_query',
+    "get_metadata_query"
 ]

@@ -1,8 +1,8 @@
-from utillities import _month_path, _ensure_path, _write_parquet_file, _build_manifest, _manifest_path, _get_db_and_table
+from utillities import _month_path, _ensure_path, _write_parquet_file, _metadata_path, _get_db_and_table
 from config import get_logger
 from config import get_symbol_mapping
 from clients import ClickHouseClient
-from queries import get_monthly_export_query
+from queries import get_monthly_export_query, get_metadata_query
 from config import load_env
 import json
 import os
@@ -22,6 +22,45 @@ CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", 9000))
 CLICKHOUSE_USERNAME = os.getenv("CLICKHOUSE_USERNAME", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "default")
 
+def _validate_metadata(metadata_path: Path, params: Dict[str, Any], clickhouse_client: ClickHouseClient, table: str) -> bool:
+    """
+    Validate the metadata file against the actual data in the Parquet file.
+    Returns True if valid, False otherwise.
+    """
+    if not metadata_path.exists():
+        logger.warning(f"Metadata file {metadata_path} does not exist.")
+        return False
+
+    try:
+        with open(metadata_path, 'r') as f:
+            local_metadata = json.load(f)
+
+        # Assuming the Parquet file is in the same directory and has the same base name
+        parquet_file_path = metadata_path.with_suffix('.parquet')
+        if not parquet_file_path.exists():
+            logger.warning(f"Parquet file {parquet_file_path} does not exist for validation.")
+            return False
+
+
+        # Read Parquet file to get actual events
+        query = get_metadata_query(table)
+        results = clickhouse_client.execute_query_with_params(query, params)
+        columns = [c[0] for c in results[1]]
+        results = results[0]  # Extract the actual data from the tuple returned by execute_query_with_params
+        events = [dict(zip(columns, row)) for row in results]
+
+        db_metadata = events[0]
+        if (local_metadata.get("row_count") != db_metadata.get("row_count") or
+            local_metadata.get("column_count") != db_metadata.get("column_count")):
+            logger.warning(f"Metadata mismatch for {metadata_path}: "
+                           f"local (rows: {local_metadata.get('row_count')}, columns: {local_metadata.get('column_count')}) "
+                           f"vs db (rows: {db_metadata.get('row_count')}, columns: {db_metadata.get('column_count')})")
+            return False
+
+        return True
+    except Exception as e:
+        logger.error(f"Error validating metadata: {e}")
+        return False
 
 def _create_fno_data(asset_class: str, symbol: str, year: int, month: int):
     """
@@ -39,7 +78,8 @@ def _create_fno_data(asset_class: str, symbol: str, year: int, month: int):
         _ensure_path(month_path)
 
         file_path = month_path / f"{symbol}_{year}_{month:02d}.parquet"
-        
+        metadata_path = _metadata_path(folder, symbol, year, month)
+
         # Query data from ClickHouse using the template
         try:
             # Get the monthly export query from templates
@@ -62,13 +102,16 @@ def _create_fno_data(asset_class: str, symbol: str, year: int, month: int):
                 "start_date": start_date.strftime('%Y-%m-%d'),
                 "end_date": end_date.strftime('%Y-%m-%d')
             }
+
+            if _validate_metadata(metadata_path, params, clickhouse_client, CLICKHOUSE_TABLE):
+                logger.info(f"Metadata for {symbol} {year}-{month:02d} in folder {folder} is valid. Skipping data creation.")
+                continue
             
             results = clickhouse_client.execute_query_with_params(query, params)
             
             columns = [c[0] for c in results[1]]
             results = results[0]  # Extract the actual data from the tuple returned by execute_query_with_params
-            events = [dict(zip(columns, row))
-            for row in results]
+            events = [dict(zip(columns, row)) for row in results]
 
             # Convert results to list of dictionaries
             if results:
@@ -77,18 +120,15 @@ def _create_fno_data(asset_class: str, symbol: str, year: int, month: int):
                 file_meta = _write_parquet_file(file_path, events)
                 
                 # Build manifest
-                manifest = _build_manifest([file_meta], [file_meta["symbol"]])
-                manifest_path = _manifest_path(folder, symbol)
-                manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
-                logger.info(f"Created monthly parquet and manifest: {folder} for {symbol} {year}-{month:02d} with {len(events)} records")
+                metadata_path.write_text(json.dumps(file_meta, indent=2, default=str))
+                logger.info(f"Created monthly parquet and metadata: {folder} for {symbol} {year}-{month:02d} with {len(events)} records")
             else:
                 logger.warning(f"No data found for {symbol} {year}-{month:02d} in folder {folder}")
                 # Still create empty file to maintain consistency
                 file_meta = _write_parquet_file(file_path, [])
-                manifest = _build_manifest([file_meta], ["UNKNOWN"])
-                manifest_path = _manifest_path(folder, symbol)
-                manifest_path.write_text(json.dumps(manifest, indent=2, default=str))
-                
+                metadata_path = _metadata_path(folder, symbol)
+                metadata_path.write_text(json.dumps(file_meta, indent=2, default=str))
+
         except Exception as e:
             logger.error(f"Failed to create FNO data for {symbol} {year}-{month:02d} in folder {folder}: {e}")
             raise

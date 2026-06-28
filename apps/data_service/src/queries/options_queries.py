@@ -190,7 +190,8 @@ SELECT
         AND database = currentDatabase()) as column_count
 FROM {table_name}
 WHERE Symbol = %(symbol)s
-    AND toDate(Timestamp) BETWEEN %(start_date)s AND %(end_date)s
+  AND toDate(Timestamp) >= %(start_date)s
+  AND toDate(Timestamp) < %(end_date)s
 """
 
 # 16. CUSTOM COLUMN SELECTION - Select specific columns only
